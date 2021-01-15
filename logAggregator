@@ -1,0 +1,59 @@
+<?php
+
+class LogAggregator
+{
+    public function run()
+    {
+        $directory = __DIR__ . '/logs';
+        $fileContents = $this->readFiles($directory);
+        $contentLines = [];
+        foreach ($fileContents as $file => $content) {
+            $contentLines = array_merge(explode("\n", $content), $contentLines);
+        }
+
+
+        $contentByTimeStamp = [];
+        $previousTimeStamp = false;
+        foreach ($contentLines as $line) {
+            $dateTime = substr($line, 1, 19);
+            $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $dateTime);
+
+            if ( $dateTime == false) {
+                if ($previousTimeStamp) {
+                    $contentByTimeStamp[$previousTimeStamp][] = $line;
+                }
+                continue;
+            }
+
+            $previousTimeStamp = $dateTime->getTimestamp();
+            $contentByTimeStamp[$dateTime->getTimestamp()][] = $line;
+        }
+
+        $content ='';
+
+        ksort($contentByTimeStamp);
+        foreach ($contentByTimeStamp as $contents){
+            $content = $content . "\n" . implode("\n", $contents);
+        }
+        file_put_contents($directory . '/aggregated-file.log', $content);
+    }
+
+
+    private function readFiles($directory)
+    {
+        $files = scandir($directory);
+        $logFiles = [];
+        foreach ($files as $file) {
+            if ($file == '.' || $file == '..') {
+                continue;
+            }
+
+            $logFiles[$file] = file_get_contents($directory . '/' . $file);
+        }
+        return $logFiles;
+    }
+}
+
+
+$aggregator = new LogAggregator();
+$aggregator->run();
